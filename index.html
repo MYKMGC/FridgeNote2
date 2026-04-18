@@ -33,12 +33,16 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Header ── */
-    header {
+    /* ── Top bar (sticky wrapper) ── */
+    #topbar {
       position: sticky;
       top: 0;
       z-index: 10;
       background: #fff;
+    }
+
+    /* ── Header ── */
+    header {
       border-bottom: 1px solid var(--border);
       padding: 16px 20px 14px;
       display: flex;
@@ -55,6 +59,62 @@
       padding: 3px 10px;
       border-radius: 20px;
     }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      border-bottom: 1px solid var(--border);
+    }
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .filter-row::-webkit-scrollbar { display: none; }
+    .filter-btn {
+      flex-shrink: 0;
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: #fff;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .filter-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .sort-bar {
+      padding: 6px 16px 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .btn-sort {
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      background: #fff;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .btn-sort.asc  { border-color: var(--primary); color: var(--primary); background: #eff6ff; }
+    .btn-sort.desc { border-color: #8b5cf6;        color: #7c3aed;        background: #f5f3ff; }
 
     /* ── List ── */
     #list {
@@ -320,11 +380,27 @@
 </head>
 <body>
 
-<header>
-  <span class="logo">🧊</span>
-  <h1>FridgeNote</h1>
-  <span class="count" id="count">0 件</span>
-</header>
+<div id="topbar">
+  <header>
+    <span class="logo">🧊</span>
+    <h1>FridgeNote</h1>
+    <span class="count" id="count">0 件</span>
+  </header>
+  <div class="toolbar">
+    <div class="filter-row" id="filter-row">
+      <button class="filter-btn active" data-cat="すべて">すべて</button>
+      <button class="filter-btn" data-cat="野菜">🥦 野菜</button>
+      <button class="filter-btn" data-cat="肉">🥩 肉</button>
+      <button class="filter-btn" data-cat="魚">🐟 魚</button>
+      <button class="filter-btn" data-cat="乳製品">🧀 乳製品</button>
+      <button class="filter-btn" data-cat="調味料">🧂 調味料</button>
+      <button class="filter-btn" data-cat="その他">📦 その他</button>
+    </div>
+    <div class="sort-bar">
+      <button class="btn-sort asc" id="btn-sort">📅 賞味期限が近い順 ↑</button>
+    </div>
+  </div>
+</div>
 
 <main id="list"></main>
 
@@ -380,6 +456,9 @@
     '乳製品': '🧀', '調味料': '🧂', 'その他': '📦'
   };
 
+  let currentFilter = 'すべて';
+  let sortAsc = true;
+
   function loadItems() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
     catch { return []; }
@@ -410,24 +489,31 @@
   }
 
   function renderList() {
-    const items = loadItems();
-    const list = document.getElementById('list');
+    const allItems = loadItems();
+    const items = currentFilter === 'すべて'
+      ? allItems
+      : allItems.filter(i => i.category === currentFilter);
+    const list  = document.getElementById('list');
     const count = document.getElementById('count');
-    count.textContent = `${items.length} 件`;
+    count.textContent = currentFilter === 'すべて'
+      ? `${allItems.length} 件`
+      : `${items.length} / ${allItems.length} 件`;
 
     if (items.length === 0) {
+      const msg = allItems.length === 0
+        ? '登録された食材はありません。<br>右下の ＋ ボタンで追加してみましょう！'
+        : `「${currentFilter}」の食材はありません。`;
       list.innerHTML = `
         <div id="empty">
           <div class="empty-icon">🧊</div>
-          <p>登録された食材はありません。<br>右下の ＋ ボタンで追加してみましょう！</p>
+          <p>${msg}</p>
         </div>`;
       return;
     }
 
-    // Sort: expired first by date, then by expiry asc
     const sorted = [...items].sort((a, b) => {
       const da = daysDiff(a.expiry), db = daysDiff(b.expiry);
-      return da - db;
+      return sortAsc ? da - db : db - da;
     });
 
     list.innerHTML = sorted.map(item => {
@@ -460,6 +546,24 @@
   function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  // ── Filter ──
+  document.getElementById('filter-row').addEventListener('click', e => {
+    const btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    currentFilter = btn.dataset.cat;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderList();
+  });
+
+  // ── Sort ──
+  document.getElementById('btn-sort').addEventListener('click', () => {
+    sortAsc = !sortAsc;
+    const btn = document.getElementById('btn-sort');
+    btn.className = `btn-sort ${sortAsc ? 'asc' : 'desc'}`;
+    btn.textContent = sortAsc ? '📅 賞味期限が近い順 ↑' : '📅 賞味期限が遠い順 ↓';
+    renderList();
+  });
 
   // ── Delete ──
   document.getElementById('list').addEventListener('click', e => {
