@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>FridgeNote</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --danger: #ef4444;
+      --warn-bg: #fef9c3;
+      --warn-border: #facc15;
+      --danger-bg: #fee2e2;
+      --danger-border: #f87171;
+      --card-bg: #ffffff;
+      --surface: #f1f5f9;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 14px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--surface);
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header .logo { font-size: 22px; }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    header .count {
+      margin-left: auto;
+      font-size: 13px;
+      color: var(--text-muted);
+      background: var(--surface);
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    /* ── List ── */
+    #list {
+      padding: 16px 16px 100px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ── Empty state ── */
+    #empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 80px 24px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    #empty .empty-icon { font-size: 56px; opacity: .5; }
+    #empty p { font-size: 15px; line-height: 1.5; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      border: 1.5px solid var(--border);
+      padding: 14px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      transition: transform .12s;
+    }
+    .card:active { transform: scale(.98); }
+    .card.warn {
+      background: var(--warn-bg);
+      border-color: var(--warn-border);
+    }
+    .card.danger {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .card-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+      line-height: 1;
+      margin-top: 1px;
+    }
+    .card-body { flex: 1; min-width: 0; }
+    .card-name {
+      font-size: 16px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-qty {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .btn-delete {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: #f1f5f9;
+      color: #94a3b8;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, color .15s;
+    }
+    .btn-delete:active { background: var(--danger-bg); color: var(--danger); }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .badge-category {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 20px;
+      background: #e0f2fe;
+      color: #0369a1;
+      letter-spacing: .2px;
+    }
+    .expiry-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .card.warn .expiry-label { color: #92400e; }
+    .card.danger .expiry-label { color: #b91c1c; }
+    .expiry-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-left: 6px;
+    }
+    .card.warn .expiry-badge { background: #fde68a; color: #78350f; }
+    .card.danger .expiry-badge { background: #fca5a5; color: #7f1d1d; }
+
+    /* ── FAB ── */
+    #fab {
+      position: fixed;
+      bottom: 28px;
+      right: 20px;
+      z-index: 20;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-size: 30px;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(59,130,246,.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, transform .12s;
+    }
+    #fab:active { background: var(--primary-dark); transform: scale(.92); }
+
+    /* ── Modal overlay ── */
+    #modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      background: rgba(0,0,0,.45);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+    }
+    #modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ── Modal sheet ── */
+    #modal {
+      background: #fff;
+      width: 100%;
+      max-width: 480px;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 20px 40px;
+      transform: translateY(100%);
+      transition: transform .25s cubic-bezier(.32,0,.67,0);
+    }
+    #modal-overlay.open #modal {
+      transform: translateY(0);
+    }
+
+    .modal-handle {
+      width: 40px;
+      height: 4px;
+      border-radius: 4px;
+      background: #cbd5e1;
+      margin: 0 auto 20px;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 18px;
+      text-align: center;
+    }
+
+    /* ── Form ── */
+    .field { margin-bottom: 16px; }
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      letter-spacing: .3px;
+    }
+    .field label .req { color: var(--danger); margin-left: 2px; }
+    .field input,
+    .field select {
+      width: 100%;
+      height: 48px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 0 14px;
+      font-size: 16px;
+      color: var(--text);
+      background: #fff;
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .field input:focus,
+    .field select:focus { border-color: var(--primary); }
+    .select-wrap { position: relative; }
+    .select-wrap::after {
+      content: '▾';
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* ── Modal actions ── */
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .btn {
+      flex: 1;
+      height: 52px;
+      border-radius: 12px;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn:active { opacity: .8; transform: scale(.97); }
+    .btn-cancel {
+      background: var(--surface);
+      color: var(--text-muted);
+    }
+    .btn-add {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(59,130,246,.35);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo">🧊</span>
+  <h1>FridgeNote</h1>
+  <span class="count" id="count">0 件</span>
+</header>
+
+<main id="list"></main>
+
+<button id="fab" aria-label="食材を追加">＋</button>
+
+<div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div id="modal">
+    <div class="modal-handle"></div>
+    <p class="modal-title" id="modal-title">食材を追加</p>
+
+    <form id="add-form" novalidate>
+      <div class="field">
+        <label for="f-name">食材名<span class="req">*</span></label>
+        <input id="f-name" type="text" placeholder="例: きゅうり" autocomplete="off" inputmode="text" />
+      </div>
+
+      <div class="field">
+        <label for="f-cat">カテゴリ<span class="req">*</span></label>
+        <div class="select-wrap">
+          <select id="f-cat">
+            <option value="野菜">🥦 野菜</option>
+            <option value="肉">🥩 肉</option>
+            <option value="魚">🐟 魚</option>
+            <option value="乳製品">🧀 乳製品</option>
+            <option value="調味料">🧂 調味料</option>
+            <option value="その他">📦 その他</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-exp">賞味期限<span class="req">*</span></label>
+        <input id="f-exp" type="date" />
+      </div>
+
+      <div class="field">
+        <label for="f-qty">数量メモ（任意）</label>
+        <input id="f-qty" type="text" placeholder="例: 2本、少量" autocomplete="off" />
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" id="btn-cancel">キャンセル</button>
+        <button type="submit" class="btn btn-add">追加する</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'fridgenote_items';
+  const CATEGORY_ICON = {
+    '野菜': '🥦', '肉': '🥩', '魚': '🐟',
+    '乳製品': '🧀', '調味料': '🧂', 'その他': '📦'
+  };
+
+  function loadItems() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function saveItems(items) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  }
+
+  function daysDiff(dateStr) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const exp = new Date(dateStr + 'T00:00:00');
+    return Math.round((exp - today) / 86400000);
+  }
+
+  function formatDate(dateStr) {
+    const [y, m, d] = dateStr.split('-');
+    return `${y}年${parseInt(m)}月${parseInt(d)}日`;
+  }
+
+  function expiryStatus(dateStr) {
+    const diff = daysDiff(dateStr);
+    if (diff < 0)  return { cls: 'danger', badge: '期限切れ' };
+    if (diff === 0) return { cls: 'danger', badge: '今日まで' };
+    if (diff <= 3)  return { cls: 'warn',   badge: `あと${diff}日` };
+    return { cls: '', badge: '' };
+  }
+
+  function renderList() {
+    const items = loadItems();
+    const list = document.getElementById('list');
+    const count = document.getElementById('count');
+    count.textContent = `${items.length} 件`;
+
+    if (items.length === 0) {
+      list.innerHTML = `
+        <div id="empty">
+          <div class="empty-icon">🧊</div>
+          <p>登録された食材はありません。<br>右下の ＋ ボタンで追加してみましょう！</p>
+        </div>`;
+      return;
+    }
+
+    // Sort: expired first by date, then by expiry asc
+    const sorted = [...items].sort((a, b) => {
+      const da = daysDiff(a.expiry), db = daysDiff(b.expiry);
+      return da - db;
+    });
+
+    list.innerHTML = sorted.map(item => {
+      const { cls, badge } = expiryStatus(item.expiry);
+      const icon = CATEGORY_ICON[item.category] || '📦';
+      const badgeHtml = badge
+        ? `<span class="expiry-badge">${badge}</span>`
+        : '';
+      const qtyHtml = item.qty
+        ? `<div class="card-qty">${escHtml(item.qty)}</div>`
+        : '';
+      return `
+        <div class="card ${cls}" data-id="${item.id}">
+          <div class="card-top">
+            <div class="card-icon">${icon}</div>
+            <div class="card-body">
+              <div class="card-name">${escHtml(item.name)}</div>
+              ${qtyHtml}
+            </div>
+            <button class="btn-delete" data-id="${item.id}" aria-label="削除">✕</button>
+          </div>
+          <div class="card-footer">
+            <span class="badge-category">${escHtml(item.category)}</span>
+            <span class="expiry-label">📅 ${formatDate(item.expiry)}${badgeHtml}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Delete ──
+  document.getElementById('list').addEventListener('click', e => {
+    const btn = e.target.closest('.btn-delete');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const items = loadItems().filter(i => i.id !== id);
+    saveItems(items);
+    renderList();
+  });
+
+  // ── Modal ──
+  const overlay = document.getElementById('modal-overlay');
+  const form    = document.getElementById('add-form');
+  const fName   = document.getElementById('f-name');
+  const fCat    = document.getElementById('f-cat');
+  const fExp    = document.getElementById('f-exp');
+  const fQty    = document.getElementById('f-qty');
+
+  function openModal() {
+    fName.value = '';
+    fCat.value  = '野菜';
+    fExp.value  = '';
+    fQty.value  = '';
+    overlay.classList.add('open');
+    setTimeout(() => fName.focus(), 280);
+  }
+
+  function closeModal() {
+    overlay.classList.remove('open');
+  }
+
+  document.getElementById('fab').addEventListener('click', openModal);
+  document.getElementById('btn-cancel').addEventListener('click', closeModal);
+
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) closeModal();
+  });
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const name = fName.value.trim();
+    const exp  = fExp.value;
+    if (!name || !exp) {
+      if (!name) fName.focus();
+      else fExp.focus();
+      return;
+    }
+    const items = loadItems();
+    items.push({
+      id:       Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name,
+      category: fCat.value,
+      expiry:   exp,
+      qty:      fQty.value.trim()
+    });
+    saveItems(items);
+    renderList();
+    closeModal();
+  });
+
+  // Initial render
+  renderList();
+</script>
+</body>
+</html>
