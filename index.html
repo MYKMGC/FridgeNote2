@@ -286,6 +286,9 @@
       background: #fff;
       width: 100%;
       max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       border-radius: 20px 20px 0 0;
       padding: 20px 20px 40px;
       transform: translateY(100%);
@@ -337,16 +340,87 @@
     }
     .field input:focus,
     .field select:focus { border-color: var(--primary); }
-    .select-wrap { position: relative; }
-    .select-wrap::after {
-      content: '▾';
-      position: absolute;
-      right: 14px;
-      top: 50%;
-      transform: translateY(-50%);
-      pointer-events: none;
-      color: var(--text-muted);
+    /* ── Step visibility ── */
+    .step { display: flex; flex-direction: column; }
+    .step.hidden { display: none; }
+
+    /* ── Category grid (step 1) ── */
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .cat-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 14px 6px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s, border-color .15s;
+    }
+    .cat-btn:active { background: #eff6ff; border-color: var(--primary); }
+    .cat-btn-icon  { font-size: 26px; line-height: 1; }
+    .cat-btn-label { font-size: 11px; font-weight: 600; color: var(--text); text-align: center; line-height: 1.3; }
+
+    /* ── Step 2 header ── */
+    .step2-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .btn-back {
+      border: none;
+      background: none;
+      color: var(--primary);
       font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 6px 2px;
+      -webkit-tap-highlight-color: transparent;
+      flex-shrink: 0;
+    }
+    .step2-cat-name { font-size: 16px; font-weight: 700; }
+
+    /* ── Item grid (step 2) ── */
+    .item-grid-wrap {
+      max-height: 190px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 16px;
+    }
+    .item-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .item-btn {
+      padding: 9px 4px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      text-align: center;
+      line-height: 1.3;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .12s, border-color .12s, color .12s;
+    }
+    .item-btn.selected {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
     }
 
     /* ── Modal actions ── */
@@ -389,12 +463,18 @@
   <div class="toolbar">
     <div class="filter-row" id="filter-row">
       <button class="filter-btn active" data-cat="すべて">すべて</button>
-      <button class="filter-btn" data-cat="野菜">🥦 野菜</button>
-      <button class="filter-btn" data-cat="肉">🥩 肉</button>
-      <button class="filter-btn" data-cat="魚">🐟 魚</button>
-      <button class="filter-btn" data-cat="乳製品">🧀 乳製品</button>
-      <button class="filter-btn" data-cat="調味料">🧂 調味料</button>
-      <button class="filter-btn" data-cat="その他">📦 その他</button>
+      <button class="filter-btn" data-cat="肉類">🥩 肉類</button>
+      <button class="filter-btn" data-cat="野菜・果実類">🥦 野菜</button>
+      <button class="filter-btn" data-cat="魚介類">🐟 魚介</button>
+      <button class="filter-btn" data-cat="乾物・海藻類">🌿 乾物</button>
+      <button class="filter-btn" data-cat="きのこ・山菜類">🍄 きのこ</button>
+      <button class="filter-btn" data-cat="卵類">🥚 卵</button>
+      <button class="filter-btn" data-cat="いも類">🥔 いも</button>
+      <button class="filter-btn" data-cat="パン類">🍞 パン</button>
+      <button class="filter-btn" data-cat="ごはん類">🍚 ごはん</button>
+      <button class="filter-btn" data-cat="乳製品類">🧀 乳製品</button>
+      <button class="filter-btn" data-cat="豆・豆腐類">🫘 豆腐</button>
+      <button class="filter-btn" data-cat="麺類">🍜 麺</button>
     </div>
     <div class="sort-bar">
       <button class="btn-sort asc" id="btn-sort">📅 賞味期限が近い順 ↑</button>
@@ -406,54 +486,78 @@
 
 <button id="fab" aria-label="食材を追加">＋</button>
 
-<div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+<div id="modal-overlay" role="dialog" aria-modal="true">
   <div id="modal">
     <div class="modal-handle"></div>
-    <p class="modal-title" id="modal-title">食材を追加</p>
 
-    <form id="add-form" novalidate>
-      <div class="field">
-        <label for="f-name">食材名<span class="req">*</span></label>
-        <input id="f-name" type="text" placeholder="例: きゅうり" autocomplete="off" inputmode="text" />
+    <!-- Step 1: カテゴリ選択 -->
+    <div id="step-cat" class="step">
+      <p class="modal-title">カテゴリを選択</p>
+      <div class="cat-grid" id="cat-grid"></div>
+      <button type="button" class="btn btn-cancel" id="btn-cancel-cat">キャンセル</button>
+    </div>
+
+    <!-- Step 2: 食材選択 + 入力フォーム -->
+    <div id="step-item" class="step hidden">
+      <div class="step2-header">
+        <button type="button" class="btn-back" id="btn-back">← 戻る</button>
+        <span class="step2-cat-name" id="step2-cat-name"></span>
       </div>
-
-      <div class="field">
-        <label for="f-cat">カテゴリ<span class="req">*</span></label>
-        <div class="select-wrap">
-          <select id="f-cat">
-            <option value="野菜">🥦 野菜</option>
-            <option value="肉">🥩 肉</option>
-            <option value="魚">🐟 魚</option>
-            <option value="乳製品">🧀 乳製品</option>
-            <option value="調味料">🧂 調味料</option>
-            <option value="その他">📦 その他</option>
-          </select>
+      <div class="item-grid-wrap">
+        <div class="item-grid" id="item-grid"></div>
+      </div>
+      <form id="add-form" novalidate>
+        <div class="field">
+          <label for="f-name">食材名<span class="req">*</span></label>
+          <input id="f-name" type="text" placeholder="上から選ぶか直接入力" autocomplete="off" inputmode="text" />
         </div>
-      </div>
-
-      <div class="field">
-        <label for="f-exp">賞味期限<span class="req">*</span></label>
-        <input id="f-exp" type="date" />
-      </div>
-
-      <div class="field">
-        <label for="f-qty">数量メモ（任意）</label>
-        <input id="f-qty" type="text" placeholder="例: 2本、少量" autocomplete="off" />
-      </div>
-
-      <div class="modal-actions">
-        <button type="button" class="btn btn-cancel" id="btn-cancel">キャンセル</button>
-        <button type="submit" class="btn btn-add">追加する</button>
-      </div>
-    </form>
+        <div class="field">
+          <label for="f-exp">賞味期限<span class="req">*</span></label>
+          <input id="f-exp" type="date" />
+        </div>
+        <div class="field">
+          <label for="f-qty">数量メモ（任意）</label>
+          <input id="f-qty" type="text" placeholder="例: 2本、少量" autocomplete="off" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-cancel" id="btn-cancel">キャンセル</button>
+          <button type="submit" class="btn btn-add">追加する</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 
 <script>
   const STORAGE_KEY = 'fridgenote_items';
   const CATEGORY_ICON = {
-    '野菜': '🥦', '肉': '🥩', '魚': '🐟',
-    '乳製品': '🧀', '調味料': '🧂', 'その他': '📦'
+    '肉類':       '🥩',
+    '野菜・果実類': '🥦',
+    '魚介類':     '🐟',
+    '乾物・海藻類': '🌿',
+    'きのこ・山菜類': '🍄',
+    '卵類':       '🥚',
+    'いも類':     '🥔',
+    'パン類':     '🍞',
+    'ごはん類':   '🍚',
+    '乳製品類':   '🧀',
+    '豆・豆腐類': '🫘',
+    '麺類':       '🍜',
+  };
+
+  const FOOD_ITEMS = {
+    '肉類':       ['牛薄切り肉','牛焼肉用','牛ステーキ用','牛ブロック肉','豚薄切り肉','豚焼肉用','豚生姜焼き用肉','豚ブロック肉','鶏もも肉','鶏むね肉','挽き肉','ハム・ソーセージ・ベーコン類'],
+    '野菜・果実類': ['キャベツ','レタス類','白菜','たまねぎ','長ねぎ','もやし','トマト','きゅうり','なす','ピーマン類','かぼちゃ','にんじん','大根','生姜','カット野菜','果実類'],
+    '魚介類':     ['さけ・サーモン','ぶり','さば','さんま','しらす','ツナ缶','エビ・カニ','イカ・タコ','貝類','魚卵','練り物'],
+    '乾物・海藻類': ['海苔','昆布','わかめ','麩','春雨'],
+    'きのこ・山菜類': ['しいたけ','しめじ','エリンギ','えのきたけ','まいたけ'],
+    '卵類':       ['鶏卵'],
+    'いも類':     ['じゃがいも','さつまいも','里芋','長芋・山芋','こんにゃく類'],
+    'パン類':     ['食パン','フランスパン'],
+    'ごはん類':   ['ごはん','米（炊飯前）','もち米','餅'],
+    '乳製品類':   ['牛乳','チーズ','ヨーグルト','生クリーム'],
+    '豆・豆腐類': ['豆腐','油揚げ','厚揚げ','納豆'],
+    '麺類':       ['うどん','そば','そうめん','中華麺','パスタ・スパゲティ'],
   };
 
   let currentFilter = 'すべて';
@@ -576,28 +680,76 @@
   });
 
   // ── Modal ──
-  const overlay = document.getElementById('modal-overlay');
-  const form    = document.getElementById('add-form');
-  const fName   = document.getElementById('f-name');
-  const fCat    = document.getElementById('f-cat');
-  const fExp    = document.getElementById('f-exp');
-  const fQty    = document.getElementById('f-qty');
+  const overlay   = document.getElementById('modal-overlay');
+  const stepCat   = document.getElementById('step-cat');
+  const stepItem  = document.getElementById('step-item');
+  const form      = document.getElementById('add-form');
+  const fName     = document.getElementById('f-name');
+  const fExp      = document.getElementById('f-exp');
+  const fQty      = document.getElementById('f-qty');
+  let selectedCategory = '';
+
+  function buildCatGrid() {
+    document.getElementById('cat-grid').innerHTML =
+      Object.entries(CATEGORY_ICON).map(([cat, icon]) =>
+        `<button type="button" class="cat-btn" data-cat="${escHtml(cat)}">
+           <span class="cat-btn-icon">${icon}</span>
+           <span class="cat-btn-label">${escHtml(cat)}</span>
+         </button>`
+      ).join('');
+  }
+
+  function showStep(n) {
+    stepCat.classList.toggle('hidden', n !== 1);
+    stepItem.classList.toggle('hidden', n !== 2);
+    document.getElementById('modal').scrollTop = 0;
+  }
+
+  function openCategory(cat) {
+    selectedCategory = cat;
+    document.getElementById('step2-cat-name').textContent =
+      `${CATEGORY_ICON[cat] || ''} ${cat}`;
+    fName.value = '';
+    document.getElementById('item-grid').innerHTML =
+      (FOOD_ITEMS[cat] || []).map(item =>
+        `<button type="button" class="item-btn" data-item="${escHtml(item)}">${escHtml(item)}</button>`
+      ).join('');
+    showStep(2);
+  }
 
   function openModal() {
     fName.value = '';
-    fCat.value  = '野菜';
     fExp.value  = '';
     fQty.value  = '';
+    selectedCategory = '';
+    buildCatGrid();
+    showStep(1);
     overlay.classList.add('open');
-    setTimeout(() => fName.focus(), 280);
   }
 
   function closeModal() {
     overlay.classList.remove('open');
   }
 
-  document.getElementById('fab').addEventListener('click', openModal);
+  // Category grid click (event delegation)
+  document.getElementById('cat-grid').addEventListener('click', e => {
+    const btn = e.target.closest('.cat-btn');
+    if (btn) openCategory(btn.dataset.cat);
+  });
+
+  // Item grid click (event delegation)
+  document.getElementById('item-grid').addEventListener('click', e => {
+    const btn = e.target.closest('.item-btn');
+    if (!btn) return;
+    document.querySelectorAll('.item-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    fName.value = btn.dataset.item;
+  });
+
+  document.getElementById('btn-back').addEventListener('click', () => showStep(1));
+  document.getElementById('btn-cancel-cat').addEventListener('click', closeModal);
   document.getElementById('btn-cancel').addEventListener('click', closeModal);
+  document.getElementById('fab').addEventListener('click', openModal);
 
   overlay.addEventListener('click', e => {
     if (e.target === overlay) closeModal();
@@ -607,16 +759,13 @@
     e.preventDefault();
     const name = fName.value.trim();
     const exp  = fExp.value;
-    if (!name || !exp) {
-      if (!name) fName.focus();
-      else fExp.focus();
-      return;
-    }
+    if (!name) { fName.focus(); return; }
+    if (!exp)  { fExp.focus();  return; }
     const items = loadItems();
     items.push({
       id:       Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       name,
-      category: fCat.value,
+      category: selectedCategory,
       expiry:   exp,
       qty:      fQty.value.trim()
     });
